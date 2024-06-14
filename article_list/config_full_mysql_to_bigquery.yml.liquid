@@ -1,0 +1,43 @@
+{% assign seconds = 1 | times: 24 | times: 60 | times: 60 %}
+{% capture yesterday %}{{ 'today' | date: "%s" | minus: seconds | date: "%Y%m%d" }}{% endcapture %}
+in:
+  type: mysql
+  user: {{env.MYSQL_USER}}
+  password: {{env.MYSQL_PASSWORD}}
+  database: sample
+  host: {{env.MYSQL_HOST}}
+  options: {useLegacyDatetimeCode: false, serverTimezone: Asia/Tokyo}
+  query: "
+SELECT
+  A.id AS article_id,
+  A.title,
+  A.flg_visible AS publish_flag,
+  A.valid_date AS publish_date,
+  C.name AS category_main,
+  A.updated_at AS updated_at
+FROM
+  articles AS A
+JOIN
+  ctg_article AS C
+ON
+  A.ctg_article_id = C.id
+"
+
+#out: {type: stdout}
+out:
+  type: bigquery
+  mode: replace
+  auth_method: service_account
+  json_keyfile: {{env.BIGQUERY_KEYFILE}}
+  project: {{env.BIGQUERY_PROJECT}}
+  dataset: {{env.BIGQUERY_DATASET}}
+  table: sample_article_list_{{ yesterday }}
+  compression: GZIP
+  source_format: NEWLINE_DELIMITED_JSON
+  column_options:
+    - {name: article_id, type: INTEGER}
+    - {name: title, type: STRING}
+    - {name: publish_flag, type: BOOLEAN}
+    - {name: publish_date, type: TIMESTAMP}
+    - {name: category_main, type: STRING}
+    - {name: updated_at, type: TIMESTAMP}
